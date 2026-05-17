@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Urban Hostility Classification</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&family=IBM+Plex+Sans+Condensed:wght@300;400;500&display=swap');
+
+:root {
+  --bg: #f5f4f0;
+  --ink: #1a1a1a;
+  --mid: #888;
+  --light: #ccc;
+  --rule: #d0cfc9;
+  --page-w: 1400px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 11px; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'IBM Plex Mono', monospace;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+/* ─── SPREAD LAYOUT ─── */
+.spread {
+  max-width: var(--page-w);
+  margin: 0 auto;
+  padding: 48px 40px 80px;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 0;
+  min-height: 100vh;
+}
+
+/* ─── LEFT SIDEBAR ─── */
+.sidebar {
+  grid-row: 1 / 3;
+  padding-right: 32px;
+  border-right: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.page-num {
+  font-size: 9px;
+  color: var(--mid);
+  letter-spacing: 0.12em;
+  margin-bottom: 32px;
+}
+
+.chapter {
+  font-size: 9px;
+  color: var(--mid);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.title-main {
+  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  color: var(--ink);
+  margin-bottom: 32px;
+}
+
+.index-section { margin-bottom: 24px; }
+
+.index-label {
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mid);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.index-list { list-style: none; }
+
+.index-list li {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 2.5px 0;
+  font-size: 9px;
+  color: var(--ink);
+  line-height: 1.4;
+  cursor: pointer;
+  transition: color 0.1s;
+}
+
+.index-list li:hover { color: var(--mid); }
+
+.idx-num {
+  color: var(--mid);
+  min-width: 16px;
+  font-size: 8px;
+}
+
+.filter-block {
+  margin-top: auto;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+}
+
+.filter-label {
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mid);
+  margin-bottom: 8px;
+}
+
+.filter-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fbtn {
+  background: none;
+  border: none;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--mid);
+  cursor: pointer;
+  text-align: left;
+  padding: 3px 0;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.1s;
+}
+
+.fbtn:hover, .fbtn.active { color: var(--ink); }
+
+.fbtn .fmark {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  flex-shrink: 0;
+}
+
+.fbtn.active .fmark { background: var(--ink); }
+
+/* ─── MAIN CONTENT ─── */
+.main {
+  padding-left: 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.top-meta {
+  font-size: 9px;
+  color: var(--mid);
+  letter-spacing: 0.1em;
+}
+
+.top-right {
+  text-align: right;
+  font-size: 9px;
+  color: var(--mid);
+  letter-spacing: 0.04em;
+}
+
+/* ─── COLUMN HEADERS ─── */
+.col-headers {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  border-bottom: 1px solid var(--rule);
+}
+
+.col-head {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mid);
+  padding: 8px 0 10px;
+}
+
+.col-head:last-child { padding-left: 24px; }
+
+/* ─── CATEGORY ROWS ─── */
+.cat-row {
+  display: grid;
+  grid-template-columns: 210px 1fr auto;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+  transition: background 0.1s;
+  position: relative;
+}
+
+.cat-row:hover { background: rgba(0,0,0,0.02); }
+.cat-row.expanded { background: rgba(0,0,0,0.03); }
+
+.cat-left {
+  padding: 14px 16px 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-right: 1px solid var(--rule);
+}
+
+.cat-num {
+  font-size: 8px;
+  color: var(--mid);
+  letter-spacing: 0.1em;
+}
+
+.cat-name {
+  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.cat-sub {
+  font-size: 8px;
+  color: var(--mid);
+  font-style: italic;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.cat-right {
+  padding: 14px 16px 14px 24px;
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-content: flex-start;
+}
+
+.sec-tag {
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  color: var(--mid);
+  border: 1px solid var(--rule);
+  padding: 2px 6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color 0.1s, border-color 0.1s;
+}
+
+.cat-row:hover .sec-tag {
+  color: var(--ink);
+  border-color: var(--light);
+}
+
+.toggle-col {
+  padding: 14px 0 14px 8px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.toggle-mark {
+  font-size: 9px;
+  color: var(--mid);
+  font-family: 'IBM Plex Mono', monospace;
+  transition: transform 0.15s;
+  line-height: 1;
+  display: inline-block;
+}
+
+.cat-row.expanded .toggle-mark { transform: rotate(45deg); }
+
+/* ─── DETAIL PANEL ─── */
+.detail-panel {
+  display: none;
+  border-bottom: 1px solid var(--ink);
+}
+
+.detail-panel.open {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 18px 0 22px;
+}
+
+.detail-section {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.detail-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.detail-section-label {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mid);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.detail-items {
+  list-style: none;
+}
+
+.detail-items > li {
+  font-size: 9px;
+  color: var(--ink);
+  line-height: 1.5;
+  padding: 2px 0;
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+}
+
+.detail-items > li::before {
+  content: '—';
+  color: var(--mid);
+  font-size: 8px;
+  flex-shrink: 0;
+}
+
+.detail-sub-items {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.detail-sub-items li {
+  font-size: 8px;
+  color: var(--mid);
+  line-height: 1.5;
+  padding: 1px 0 1px 8px;
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.detail-sub-items li::before {
+  content: '·';
+  color: var(--light);
+  flex-shrink: 0;
+}
+
+/* ─── FOOTER ─── */
+.content-footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 8px;
+  color: var(--mid);
+  letter-spacing: 0.06em;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.footer-stats {
+  display: flex;
+  gap: 24px;
+}
+
+.expand-btn {
+  background: none;
+  border: none;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--mid);
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  padding: 0;
+  border-bottom: 1px dashed var(--rule);
+  padding-bottom: 2px;
+  transition: color 0.1s, border-color 0.1s;
+}
+
+.expand-btn:hover { color: var(--ink); border-color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="spread">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="page-num">001 — 002</div>
+    <div class="chapter">Urban Spaces — Taxonomy</div>
+    <div class="title-main">Urban Hostility<br>Classification</div>
+
+    <div class="index-section">
+      <div class="index-label">Categories</div>
+      <ul class="index-list">
+        <li onclick="jumpTo(0)"><span class="idx-num">01</span>Intentional Hostile Design</li>
+        <li onclick="jumpTo(1)"><span class="idx-num">02</span>Nature Prohibitive Design</li>
+        <li onclick="jumpTo(2)"><span class="idx-num">03</span>Entropic Design</li>
+        <li onclick="jumpTo(3)"><span class="idx-num">04</span>Behaviour-Inducing Design</li>
+        <li onclick="jumpTo(4)"><span class="idx-num">05</span>Gentrificative Hostility</li>
+      </ul>
+    </div>
+
+    <div class="index-section">
+      <div class="index-label">Design vectors</div>
+      <ul class="index-list">
+        <li><span class="idx-num">·</span>Physical deterrence</li>
+        <li><span class="idx-num">·</span>Ecological erasure</li>
+        <li><span class="idx-num">·</span>Spatial injustice</li>
+        <li><span class="idx-num">·</span>Behavioural scripting</li>
+        <li><span class="idx-num">·</span>Capital displacement</li>
+      </ul>
+    </div>
+
+    <div class="filter-block">
+      <div class="filter-label">Show</div>
+      <div class="filter-btns" id="filterBtns">
+        <button class="fbtn active" data-filter="all"><span class="fmark"></span>All categories</button>
+        <button class="fbtn" data-filter="hostile"><span class="fmark"></span>Hostile</button>
+        <button class="fbtn" data-filter="ecological"><span class="fmark"></span>Ecological</button>
+        <button class="fbtn" data-filter="entropic"><span class="fmark"></span>Entropic</button>
+        <button class="fbtn" data-filter="behavioural"><span class="fmark"></span>Behavioural</button>
+        <button class="fbtn" data-filter="gentrificative"><span class="fmark"></span>Gentrificative</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="top-header">
+      <div class="top-meta">Classification of Urban Hostility — Spatial Analysis</div>
+      <div class="top-right" id="topCount"></div>
+    </div>
+
+    <div class="col-headers">
+      <div class="col-head">Category</div>
+      <div class="col-head" style="padding-left:24px">Sections — click row to expand</div>
+    </div>
+
+    <div id="catBody"></div>
+
+    <div class="content-footer">
+      <div class="footer-stats" id="footerStats"></div>
+      <button class="expand-btn" id="expandBtn" onclick="toggleAll()">+ Expand all</button>
+    </div>
+  </main>
+</div>
+
+<script>
+const CATEGORIES = [
+  {
+    num: "01", filter: "hostile",
+    name: "Intentional Hostile Design",
+    sub: "Physical deterrence induced through intentional spatial exclusion",
+    tags: ["Resting areas", "Recreational space", "Anti-shelter"],
+    sections: [
+      { label: "A — Deprivation of Resting Areas", items: [
+        { text: "Anti-sleeping benches / armrests" },
+        { text: "Spikes & studs on ledges" }
+      ]},
+      { label: "B — Deprivation of Recreational Space", items: [
+        { text: "Deprivation of active use", sub: ["Skate stoppers on curbs", "Anti-climb paint / spikes on structures", "Removal of climbable structures"] },
+        { text: "Deprivation of social use", sub: ["Removal of flat open ground"] }
+      ]},
+      { label: "C — Anti-Shelter Design", items: [
+        { text: "Angled or curved overhangs" },
+        { text: "Boulders and large planters blocking alcoves" },
+        { text: "Boulders and large planters under bridges or tunnels" },
+        { text: "Sloped ground" },
+        { text: "Bright lighting facing shelter space" },
+        { text: "Gating off building recesses and archways" }
+      ]}
+    ]
+  },
+  {
+    num: "02", filter: "ecological",
+    name: "Nature Prohibitive Design",
+    sub: "Biophilic design — passive ecological erasure",
+    tags: ["Impermeable surfaces", "Animal deterrents", "Delimitation", "Water", "Lighting", "Noise", "Chemical"],
+    sections: [
+      { label: "A — Impermeable Surfaces", items: [
+        { text: "Excessive use of cement" },
+        { text: "Excessive use of asphalt" }
+      ]},
+      { label: "B — Animal Deterrents", items: [
+        { text: "Bird spikes" },
+        { text: "Glass shards on ledges" }
+      ]},
+      { label: "C — Delimitation of Nature", items: [
+        { text: "Sealed tree pits" },
+        { text: "Root barriers" },
+        { text: "Use of pots / planters" },
+        { text: "Monoculture planting" }
+      ]},
+      { label: "D — Elimination of Water Sources", items: [
+        { text: "Removal of accessible public water features" }
+      ]},
+      { label: "E — Nocturnal Ecology Disruption", items: [
+        { text: "Lighting disrupting nocturnal ecology" }
+      ]},
+      { label: "F — Noise Pollution", items: [
+        { text: "Noise pollution disrupting fauna" }
+      ]},
+      { label: "G — Chemical Disruption", items: [
+        { text: "Pesticide / herbicide use in urban greenery" },
+        { text: "Excessive / inappropriate fertilisation", sub: ["Distribution of soil microbiome"] },
+        { text: "Biocide use in drainage", sub: ["Anti-algae products in fountains"] }
+      ]}
+    ]
+  },
+  {
+    num: "03", filter: "entropic",
+    name: "Entropic Design",
+    sub: "Spatial injustice — social marginalisation induced by signals of neglect",
+    tags: ["Inaccessible surfaces", "Decay clusters", "Fear-inducing darkness"],
+    sections: [
+      { label: "A — Inaccessible Surfaces", items: [
+        { text: "Broken pavements" },
+        { text: "Uneven repairs" },
+        { text: "Use of non-original materials" }
+      ]},
+      { label: "B — Decay Clusters", items: [
+        { text: "Peeling / stained surfaces" },
+        { text: "Crumbling street furniture" },
+        { text: "Overflowing débris", sub: ["Induces odour", "Visual marginalisation"] },
+        { text: "Non-functional gutters", sub: ["Induces odours"] },
+        { text: "Bodily fluids", sub: ["Induces odour", "Visual marginalisation"] }
+      ]},
+      { label: "C — Fear-Inducing Darkness", items: [
+        { text: "Burnt-out lighting" },
+        { text: "Targeted blackouts" }
+      ]}
+    ]
+  },
+  {
+    num: "04", filter: "behavioural",
+    name: "Behaviour-Inducing Design",
+    sub: "Behavioural scripting in response to spatial configuration",
+    tags: ["Channeling", "Pace-setting", "Social scripting", "Surveillance"],
+    sections: [
+      { label: "A — Channeling Artefacts", items: [
+        { text: "Broken pavements" },
+        { text: "Uneven repairs" }
+      ]},
+      { label: "B — Pace-Setting Design", items: [
+        { text: "Surface materials dictating movement speed" }
+      ]},
+      { label: "C — Social Scripting", items: [
+        { text: "Single seatings" },
+        { text: "Fencing off open squares or courtyards" },
+        { text: "Timed access" },
+        { text: "No access signs" }
+      ]},
+      { label: "D — Surveillance Artefacts", items: [
+        { text: "CCTV / panoptic structures" }
+      ]}
+    ]
+  },
+  {
+    num: "05", filter: "gentrificative",
+    name: "Gentrificative Hostility",
+    sub: "Phased displacement as a result of capital profit improvement",
+    tags: ["Aesthetic displacement", "Economic replacement"],
+    sections: [
+      { label: "A — Aesthetic Displacement", items: [
+        { text: "High-end street furniture", sub: ["Exclusivity signals"] },
+        { text: "Erasure of cultural identity", sub: ["Rebranding"] }
+      ]},
+      { label: "B — Economic Replacement", items: [
+        { text: "Unaffordable housing", sub: ["Evictions", "Buy-offs"] },
+        { text: "Erasures of informal economies", sub: ["Selective market restrictions"] },
+        { text: "Overpriced spaces", sub: ["Removal of informal market spaces"] },
+        { text: "Erasure of third spaces", sub: ["Transition from community into clientele", "Elimination of informal gathering spots"] }
+      ]}
+    ]
+  }
+];
+
+let activeFilter = "all";
+let expandedIdx = null;
+let allExpanded = false;
+
+function render() {
+  const filtered = activeFilter === "all" ? CATEGORIES : CATEGORIES.filter(c => c.filter === activeFilter);
+  const body = document.getElementById("catBody");
+  body.innerHTML = "";
+
+  filtered.forEach(cat => {
+    const ri = CATEGORIES.indexOf(cat);
+    const isExp = allExpanded || expandedIdx === ri;
+
+    const row = document.createElement("div");
+    row.className = "cat-row" + (isExp ? " expanded" : "");
+    row.id = "cat-" + ri;
+    row.innerHTML = `
+      <div class="cat-left">
+        <span class="cat-num">${cat.num}</span>
+        <span class="cat-name">${cat.name}</span>
+        <span class="cat-sub">${cat.sub}</span>
+      </div>
+      <div class="cat-right">
+        ${cat.tags.map(t => `<span class="sec-tag">${t}</span>`).join("")}
+      </div>
+      <div class="toggle-col"><span class="toggle-mark">+</span></div>
+    `;
+    row.addEventListener("click", () => {
+      if (allExpanded) { allExpanded = false; document.getElementById("expandBtn").textContent = "+ Expand all"; }
+      expandedIdx = expandedIdx === ri ? null : ri;
+      render();
+    });
+    body.appendChild(row);
+
+    const detail = document.createElement("div");
+    detail.className = "detail-panel" + (isExp ? " open" : "");
+    detail.innerHTML = cat.sections.map(sec => `
+      <div class="detail-section">
+        <div class="detail-section-label">${sec.label}</div>
+        <ul class="detail-items">
+          ${sec.items.map(item => `
+            <li><span>${item.text}${item.sub ? `<ul class="detail-sub-items">${item.sub.map(s => `<li>${s}</li>`).join("")}</ul>` : ""}</span></li>
+          `).join("")}
+        </ul>
+      </div>
+    `).join("");
+    body.appendChild(detail);
+  });
+
+  const totalSecs = filtered.reduce((a, c) => a + c.sections.length, 0);
+  const totalItems = filtered.reduce((a, c) => a + c.sections.reduce((b, s) => b + s.items.length, 0), 0);
+  document.getElementById("topCount").textContent = `${filtered.length} categor${filtered.length === 1 ? "y" : "ies"} — ${totalSecs} sub-sections`;
+  document.getElementById("footerStats").innerHTML = `
+    <span>${filtered.length} categories</span>
+    <span>${totalSecs} sub-sections</span>
+    <span>${totalItems} items total</span>
+  `;
+}
+
+function toggleAll() {
+  allExpanded = !allExpanded;
+  if (!allExpanded) expandedIdx = null;
+  document.getElementById("expandBtn").textContent = allExpanded ? "– Collapse all" : "+ Expand all";
+  render();
+}
+
+function jumpTo(idx) {
+  const el = document.getElementById("cat-" + idx);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+document.getElementById("filterBtns").addEventListener("click", e => {
+  const btn = e.target.closest(".fbtn");
+  if (!btn) return;
+  document.querySelectorAll(".fbtn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  activeFilter = btn.dataset.filter;
+  expandedIdx = null;
+  allExpanded = false;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
